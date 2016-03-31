@@ -15,6 +15,11 @@ Most important thing: Discard after use.
 ## INSTALL
 Copy index.php file into your web directory.
 
+## Change password
+ * Upload password.txt file which contains a new password.
+ * Reload or logout
+ * password.txt will be changed into password.hash and contains a new password.
+
 ## Useful Scenario
  * Upload index.php into web directory.
  * Upload password.txt file if you want to change password.
