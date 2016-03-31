@@ -48,30 +48,32 @@ if(!is_dir($curpath)) {
 }
 
 // Security check step 2
+// Update password
+// Set default password if not present
+if(!file_exists("password.txt") && !file_exists("password.hash")) {
+  file_put_contents("password.txt", "opensesame");
+}
+
+if(file_exists("password.txt")) {
+  $password = trim(file_get_contents("password.txt"));
+  $digest = hash_pbkdf2("sha512", $password, $salt, $hash_iteration_count, 64);
+  file_put_contents("password.hash", $digest);
+  unlink("password.txt");
+}
+
+// Security check step 3
 // Chroot jail
 if(strpos(realpath($curpath),realpath($basepath)) === false) {
   header('HTTP/1.1 403 Forbidden');
   die("<script>alert('Access violation!'); window.history.back();</script>");
 }
 
-// Security check step 3
+// Security check step 4
 // Is authorized
 // Special behavior: Display login dialog
 if(!is_authorized()) {
   // Check if login action
   if(isset($_GET['action']) && $_GET['action'] == 'login') {
-    // Set default password if not present
-    if(!file_exists("password.txt") && !file_exists("password.hash")) {
-      file_put_contents("password.txt", "opensesame");
-    }
-
-    if(file_exists("password.txt")) {
-      $password = trim(file_get_contents("password.txt"));
-      $digest = hash_pbkdf2("sha512", $password, $salt, $hash_iteration_count, 64);
-      file_put_contents("password.hash", $digest);
-      unlink("password.txt");
-    }
-
     $hash1 = file_get_contents("password.hash");
     $hash2 = hash_pbkdf2("sha512", $_POST['password'], $salt, $hash_iteration_count, 64);
 
