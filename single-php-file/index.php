@@ -10,7 +10,7 @@ session_start();
  *
  * Most important thing: Discard after use.
  * 
- * @version 0.3.0
+ * @version 0.4.0
  * @author Hoya Kim(wbstory@storymate.net)
  * @license MIT
  */
@@ -219,8 +219,18 @@ function list_directory($path) {
   }
 
   ?>
-  <div class="panel panel-default">
-    <h2>Current Directory : <span><?=$path?></span></h2>
+  <div class="nav">
+    <ol class="breadcrumb">
+      <?php
+        $path_arr = explode("/", $path);
+        for($i=0; $i<count($path_arr); $i++) {
+          $href = $_SERVER['PHP_SELF']."?dir=".path_join(array_slice($path_arr, 0, $i+1));
+          ?>
+          <li><a href="<?=$href?>"><?=$path_arr[$i]?></a></li>
+          <?php
+        }
+      ?>
+    </ol>
   </div>
   <?php
     if(is_writable($server_path)) {
