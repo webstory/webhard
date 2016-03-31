@@ -46,11 +46,21 @@ function go($path, $action = null) {
 }
 
 function path_join($path_arr) {
-  $joined_path = implode("/", $path_arr);
-  $normalized_path =  preg_replace("/\/+/","/",$joined_path);
-  $canonicalized_path = preg_replace("/\/.+?\/\.\./","/", $normalized_path);
+  $joined_path_arr = preg_split('/\//', implode("/", $path_arr), -1, PREG_SPLIT_NO_EMPTY);
+  $canon_path = array();
 
-  return $canonicalized_path;
+  while(true) {
+    $cur = array_shift($joined_path_arr);
+    if($cur == NULL) break;
+
+    if($cur == "..") {
+      array_pop($canon_path);
+    } else {
+      array_push($canon_path, $cur);
+    }
+  }
+
+  return "/".implode("/", $canon_path);
 }
 
 function is_authorized() {
