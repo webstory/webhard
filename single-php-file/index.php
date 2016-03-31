@@ -61,13 +61,18 @@ if(!is_authorized()) {
   // Check if login action
   if(isset($_GET['action']) && $_GET['action'] == 'login') {
     // Set default password if not present
-    if(!file_exists("password.txt")) {
-      $default_password = "opensesame";
-      $digest = hash_pbkdf2("sha512", $default_password, $salt, $hash_iteration_count, 64);
-      file_put_contents("password.txt", $digest);
+    if(!file_exists("password.txt") && !file_exists("password.hash")) {
+      file_put_contents("password.txt", "opensesame");
     }
 
-    $hash1 = file_get_contents("password.txt");
+    if(file_exists("password.txt")) {
+      $password = trim(file_get_contents("password.txt"));
+      $digest = hash_pbkdf2("sha512", $password, $salt, $hash_iteration_count, 64);
+      file_put_contents("password.hash", $digest);
+      unlink("password.txt");
+    }
+
+    $hash1 = file_get_contents("password.hash");
     $hash2 = hash_pbkdf2("sha512", $_POST['password'], $salt, $hash_iteration_count, 64);
 
     if($hash1 == $hash2) {
