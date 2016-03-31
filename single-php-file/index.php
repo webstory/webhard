@@ -15,11 +15,6 @@ session_start();
  * @license MIT
  */
 
-/* Configuration */
-$exclude_files = ['.htaccess'];
-$exclude_extensions = ['php'];
-/*****************/
-
 function path_join($path_arr) {
   $joined_path = implode("/", $path_arr);
   $normalized_path =  preg_replace("/\/+/","/",$joined_path);
