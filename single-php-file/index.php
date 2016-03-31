@@ -10,7 +10,7 @@ session_start();
  *
  * Most important thing: Discard after use.
  * 
- * @version 0.2.0
+ * @version 0.3.0
  * @author Hoya Kim(wbstory@storymate.net)
  * @license MIT
  */
@@ -18,7 +18,32 @@ session_start();
 /* Security Configuration */
 $salt = $_SERVER['SERVER_NAME'];   // Any string
 $hash_iteration_count = 54321;     // Higher is better
-/**************************/
+
+/* Style Configuration */
+function CustomCSS() {
+  ?>
+  <style>
+    .directory {
+      font-weight:bold;
+    }
+
+    .file {
+    }
+  </style>
+  <?php
+}
+
+function go($path, $action = null) {
+  if(!isset($path)) $path = "/";
+
+  $url = $_SERVER['PHP_SELF']."?dir=".$path;
+
+  if($action) $url .= "&action=".$action;
+
+  ?>
+  <script>location.href = "<?=$url?>"</script>
+  <?php
+}
 
 function path_join($path_arr) {
   $joined_path = implode("/", $path_arr);
@@ -32,38 +57,39 @@ function is_authorized() {
   return isset($_SESSION['token']) && $_SESSION['token'] == session_id();
 }
 
-$method = $_SERVER['REQUEST_METHOD'];
-$current_uri = $_SERVER['REQUEST_URI'];
-
 $basepath = dirname(__FILE__);
 $path = isset($_GET['dir'])? urldecode($_GET['dir']) : "/";
 
-$curpath = path_join([$basepath, $path]);
+$server_path = path_join([$basepath, $path]);
 
 // Security check step 1
+// Update password
+// Set default password if not present
+function update_password($salt, $iteration) {
+  if(!file_exists("password.txt") && !file_exists("password.hash")) {
+    file_put_contents("password.txt", "opensesame");
+  }
+
+  if(file_exists("password.txt")) {
+    $password = trim(file_get_contents("password.txt"));
+    $digest = hash_pbkdf2("sha512", $password, $salt, $hash_iteration_count, 64);
+    file_put_contents("password.hash", $digest);
+    unlink("password.txt");
+  }
+}
+
+update_password($salt, $hash_iteration_count);
+
+// Security check step 2
 // Check path is directory
-if(!is_dir($curpath)) {
+if(!is_dir($server_path)) {
   header('HTTP/1.1 404 Not Found');
   die("<script>alert('".$path." is not a directory.'); window.history.back();</script>");
 }
 
-// Security check step 2
-// Update password
-// Set default password if not present
-if(!file_exists("password.txt") && !file_exists("password.hash")) {
-  file_put_contents("password.txt", "opensesame");
-}
-
-if(file_exists("password.txt")) {
-  $password = trim(file_get_contents("password.txt"));
-  $digest = hash_pbkdf2("sha512", $password, $salt, $hash_iteration_count, 64);
-  file_put_contents("password.hash", $digest);
-  unlink("password.txt");
-}
-
 // Security check step 3
 // Chroot jail
-if(strpos(realpath($curpath),realpath($basepath)) === false) {
+if(strpos(realpath($server_path),realpath($basepath)) === false) {
   header('HTTP/1.1 403 Forbidden');
   die("<script>alert('Access violation!'); window.history.back();</script>");
 }
@@ -81,12 +107,9 @@ if(!is_authorized()) {
       $_SESSION['token'] = session_id();
     }
 
-    ?>
-    <script>location.href = "<?=$_SERVER['PHP_SELF']?>?dir=/"</script>
-    <?php
+    go("/");
   } else { // Not login action
-    $method = "AUTH";
-    render();
+    render("/", "login");
   }
 } else { // Authorized
   $action = isset($_GET['action']) ? $_GET['action'] : "";
@@ -94,39 +117,42 @@ if(!is_authorized()) {
   switch($action) {
     case 'logout':
       session_destroy();
-      ?>
-      <script>location.href = "<?=$_SERVER['PHP_SELF']?>?dir=/"</script>
-      <?php
+      go("/");
+    break;
+
+    case 'upload':
+      upload_file($path, $_FILES["file"]);
+      go($path);
     break;
 
     case 'mkdir':
-      mkdir(path_join([$curpath,$_GET['name']]));
-      ?>
-      <script>location.href = "<?=$_SERVER['PHP_SELF']?>?dir=<?=$path?>"</script>
-      <?php
+      mkdir(path_join([$server_path,$_GET['name']]));
+      go($path);
     break;
 
     case 'rmdir':
-      rmdir(path_join([$curpath,$_GET['name']]));
-      ?>
-      <script>location.href = "<?=$_SERVER['PHP_SELF']?>?dir=<?=$path?>"</script>
-      <?php
+      rmdir(path_join([$server_path,$_GET['name']]));
+      go($path);
     break;
 
     case 'rm';
-      unlink(path_join([$curpath,$_GET['name']]));
-      ?>
-      <script>location.href = "<?=$_SERVER['PHP_SELF']?>?dir=<?=$path?>"</script>
-      <?php
+      unlink(path_join([$server_path,$_GET['name']]));
+      go($path);
     break;
 
     default:
-      render();
+      render($path, "list");
     break;
   }
 }
 
+///////////////////////////////////////////////
 // Routers
+///////////////////////////////////////////////
+/**
+ * Login form
+ * Display login form
+ */
 function login_form() {
   ?>
   <div class="container">
@@ -149,8 +175,14 @@ function login_form() {
 }
 
 
-function list_directory() {
-  global $path, $curpath;
+/**
+ * List directory
+ * Display directory entries in table form
+ * @param $path webhard path
+ */
+function list_directory($path) {
+  $basepath = dirname(__FILE__);
+  $server_path = path_join([$basepath, $path]);
 
   function entries($path) {
     function cmp($a, $b) {
@@ -181,11 +213,11 @@ function list_directory() {
     <h2>Current Directory : <span><?=$path?></span></h2>
   </div>
   <?php
-    if(is_writable($curpath)) {
+    if(is_writable($server_path)) {
       ?>
       <div class="container-fluid">
         <div class="pull-left">
-          <form class="form-inline" action="<?=$_SERVER['PHP_SELF']?>?dir=<?=$path?>" method="post" enctype="multipart/form-data">
+          <form class="form-inline" action="<?=$_SERVER['PHP_SELF']?>?dir=<?=$path?>&action=upload" method="post" enctype="multipart/form-data">
             <span class="form-control btn btn-default btn-file"><input type="file" name="file" id="file"/></span>
             <input class="btn btn-info" type="submit" name="submit" value="Upload" />
           </form>
@@ -208,7 +240,7 @@ function list_directory() {
     </thead>
     <tbody>
       <?php
-      foreach(entries($curpath) as $entry) {
+      foreach(entries($server_path) as $entry) {
         $link_title = $entry['name'];
 
         if($entry['type']=='dir') {
@@ -255,43 +287,29 @@ function list_directory() {
   <?php
 }
 
-function upload_file() {
-  global $curpath;
-
-  // Should not accept php extension
-  if ($_FILES["file"]["error"] == 0) {
-    $fullpath=path_join([$curpath,$_FILES["file"]["name"]]);
-    move_uploaded_file($_FILES["file"]["tmp_name"],$fullpath);
-    ?>
-      <script>reload();</script>
-    <?php
+/**
+ * Upload file
+ * Upload a file and reload self
+ * @param $path webhard path
+ * @param $file $_FILE object
+ */
+function upload_file($path, $file) {
+  if ($file["error"] == 0) {
+    $basepath = dirname(__FILE__);
+    $targetpath = path_join([$basepath, $path ,$file["name"]]);
+    move_uploaded_file($file["tmp_name"], $targetpath);
+    go($path);
   } else {
-  ?>
-    <script>alert("Upload Failed."); reload();</script>
-  <?php
+    ?>
+    <script>alert("Upload Failed.");</script>
+    <?php
+    go($path);
   }
 }
 
-function route() {
-  global $method;
+///////////////////////////////////////////////
 
-  switch ($method) {
-    case 'GET':
-      list_directory();
-      break;
-    case 'POST':
-      upload_file();
-      break;
-    case 'AUTH':
-      login_form();
-      break;
-    default:
-      break;
-  }
-}
-
-function render() {
-  global $path;
+function render($path, $view) {
   ?>
   <!doctype html>
   <html>
@@ -304,25 +322,24 @@ function render() {
     <script src="https://cdn.jsdelivr.net/jquery/2.2.2/jquery.min.js"></script>
     <script src="https://cdn.jsdelivr.net/bootstrap/3.3.6/js/bootstrap.min.js"></script>
 
-    <style>
-      .directory {
-        font-weight:bold;
-      }
-
-      .file {
-      }
+    <?php CustomCSS(); ?>
     </style>
     <script>
-      function reload() {
-        var loc = window.location;
-        window.location = loc.protocol + '//' + loc.host + loc.pathname + loc.search;
+      function go(action, actionParam) {
+        var url = "<?=$_SERVER['PHP_SELF']?>?dir=<?=$path?>";
+
+        if(action) {
+          url = url + "&action="+action+"&name="+actionParam;
+        }
+
+        location.href = url;
       }
 
       function rm(name) {
         var result = confirm(name+" will be removed. Are you Sure?");
 
         if(result) {
-          location.href = "<?=$_SERVER['PHP_SELF']?>?dir=<?=$path?>&action=rm&name="+name;
+          go("rm", name);
         }
       }
 
@@ -330,27 +347,32 @@ function render() {
         var result = confirm(name+" will be removed. Are you Sure?");
         
         if(result) {
-          location.href = "<?=$_SERVER['PHP_SELF']?>?dir=<?=$path?>&action=rmdir&name="+name;
+          go("rmdir", name);
         }
       }
 
       function mkdir() {
-        var newdir = prompt("Directory name", "");
+        var newDir = prompt("Directory name", "");
 
-        if(!!newdir && /^[^ ]+/.test(newdir)) {
-          location.href = "<?=$_SERVER['PHP_SELF']?>?dir=<?=$path?>&action=mkdir&name="+newdir;
+        if(!!newDir && /^[^ ]+/.test(newDir)) {
+          go("mkdir", newDir);
         }
-
-        return false;
       }
     </script>
-
   </head>
   <body>
     <?php
-      route();
-    ?>
+      switch ($view) {
+        case 'login':
+          login_form();
+        break;
 
+        case 'list':
+        default:
+          list_directory($path);
+        break;
+      }
+    ?>
   </body>
   </html>
   <?php
