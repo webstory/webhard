@@ -15,6 +15,11 @@ session_start();
  * @license MIT
  */
 
+/* Security Configuration */
+$salt = $_SERVER['SERVER_NAME'];   // Any string
+$hash_iteration_count = 54321;     // Higher is better
+/**************************/
+
 function path_join($path_arr) {
   $joined_path = implode("/", $path_arr);
   $normalized_path =  preg_replace("/\/+/","/",$joined_path);
@@ -57,12 +62,15 @@ if(!is_authorized()) {
   if(isset($_GET['action']) && $_GET['action'] == 'login') {
     // Set default password if not present
     if(!file_exists("password.txt")) {
-      file_put_contents("password.txt", "opensesame");
+      $default_password = "opensesame";
+      $digest = hash_pbkdf2("sha512", $default_password, $salt, $hash_iteration_count, 64);
+      file_put_contents("password.txt", $digest);
     }
 
-    $pw = trim(file_get_contents("password.txt"));
+    $hash1 = file_get_contents("password.txt");
+    $hash2 = hash_pbkdf2("sha512", $_POST['password'], $salt, $hash_iteration_count, 64);
 
-    if($pw == $_POST['password']) {
+    if($hash1 == $hash2) {
       $_SESSION['token'] = session_id();
     }
 
