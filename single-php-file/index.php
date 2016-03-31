@@ -86,40 +86,44 @@ if(!is_authorized()) {
     <?php
   } else { // Not login action
     $method = "AUTH";
+    render();
   }
-}
+} else { // Authorized
+  $action = isset($_GET['action']) ? $_GET['action'] : "";
 
-// Actions router
-$action = isset($_GET['action']) ? $_GET['action'] : "";
+  switch($action) {
+    case 'logout':
+      session_destroy();
+      ?>
+      <script>location.href = "<?=$_SERVER['PHP_SELF']?>?dir=/"</script>
+      <?php
+    break;
 
-switch($action) {
-  case 'logout':
-    session_destroy();
-    ?>
-    <script>location.href = "<?=$_SERVER['PHP_SELF']?>?dir=/"</script>
-    <?php
-  break;
+    case 'mkdir':
+      mkdir(path_join([$curpath,$_GET['name']]));
+      ?>
+      <script>location.href = "<?=$_SERVER['PHP_SELF']?>?dir=<?=$path?>"</script>
+      <?php
+    break;
 
-  case 'mkdir':
-    mkdir(path_join([$curpath,$_GET['name']]));
-    ?>
-    <script>location.href = "<?=$_SERVER['PHP_SELF']?>?dir=<?=$path?>"</script>
-    <?php
-  break;
+    case 'rmdir':
+      rmdir(path_join([$curpath,$_GET['name']]));
+      ?>
+      <script>location.href = "<?=$_SERVER['PHP_SELF']?>?dir=<?=$path?>"</script>
+      <?php
+    break;
 
-  case 'rmdir':
-    rmdir(path_join([$curpath,$_GET['name']]));
-    ?>
-    <script>location.href = "<?=$_SERVER['PHP_SELF']?>?dir=<?=$path?>"</script>
-    <?php
-  break;
+    case 'rm';
+      unlink(path_join([$curpath,$_GET['name']]));
+      ?>
+      <script>location.href = "<?=$_SERVER['PHP_SELF']?>?dir=<?=$path?>"</script>
+      <?php
+    break;
 
-  case 'rm';
-    unlink(path_join([$curpath,$_GET['name']]));
-    ?>
-    <script>location.href = "<?=$_SERVER['PHP_SELF']?>?dir=<?=$path?>"</script>
-    <?php
-  break;
+    default:
+      render();
+    break;
+  }
 }
 
 // Routers
@@ -249,10 +253,6 @@ function list_directory() {
     </tbody>
   </table>
   <?php
-  if(is_writable($curpath)) {
-    ?>
-    <?php
-  }
 }
 
 function upload_file() {
@@ -289,64 +289,70 @@ function route() {
       break;
   }
 }
-?>
-<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, user-scalable=no" />
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/bootstrap/3.3.6/css/bootstrap.min.css">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/flat-ui/2.2.2/css/flat-ui.min.css">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/fontawesome/4.5.0/css/font-awesome.min.css">
-  <script src="https://cdn.jsdelivr.net/jquery/2.2.2/jquery.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/bootstrap/3.3.6/js/bootstrap.min.js"></script>
 
-  <style>
-    .directory {
-      font-weight:bold;
-    }
-
-    .file {
-    }
-  </style>
-  <script>
-    function reload() {
-      var loc = window.location;
-      window.location = loc.protocol + '//' + loc.host + loc.pathname + loc.search;
-    }
-
-    function rm(name) {
-      var result = confirm(name+" will be removed. Are you Sure?");
-
-      if(result) {
-        location.href = "<?=$_SERVER['PHP_SELF']?>?dir=<?=$path?>&action=rm&name="+name;
-      }
-    }
-
-    function rmdir(name) {
-      var result = confirm(name+" will be removed. Are you Sure?");
-      
-      if(result) {
-        location.href = "<?=$_SERVER['PHP_SELF']?>?dir=<?=$path?>&action=rmdir&name="+name;
-      }
-    }
-
-    function mkdir() {
-      var newdir = prompt("Directory name", "");
-
-      if(!!newdir && /^[^ ]+/.test(newdir)) {
-        location.href = "<?=$_SERVER['PHP_SELF']?>?dir=<?=$path?>&action=mkdir&name="+newdir;
-      }
-
-      return false;
-    }
-  </script>
-
-</head>
-<body>
-  <?php
-    route();
+function render() {
+  global $path;
   ?>
+  <!doctype html>
+  <html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, user-scalable=no" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/bootstrap/3.3.6/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/flat-ui/2.2.2/css/flat-ui.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/fontawesome/4.5.0/css/font-awesome.min.css">
+    <script src="https://cdn.jsdelivr.net/jquery/2.2.2/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/bootstrap/3.3.6/js/bootstrap.min.js"></script>
 
-</body>
-</html>
+    <style>
+      .directory {
+        font-weight:bold;
+      }
+
+      .file {
+      }
+    </style>
+    <script>
+      function reload() {
+        var loc = window.location;
+        window.location = loc.protocol + '//' + loc.host + loc.pathname + loc.search;
+      }
+
+      function rm(name) {
+        var result = confirm(name+" will be removed. Are you Sure?");
+
+        if(result) {
+          location.href = "<?=$_SERVER['PHP_SELF']?>?dir=<?=$path?>&action=rm&name="+name;
+        }
+      }
+
+      function rmdir(name) {
+        var result = confirm(name+" will be removed. Are you Sure?");
+        
+        if(result) {
+          location.href = "<?=$_SERVER['PHP_SELF']?>?dir=<?=$path?>&action=rmdir&name="+name;
+        }
+      }
+
+      function mkdir() {
+        var newdir = prompt("Directory name", "");
+
+        if(!!newdir && /^[^ ]+/.test(newdir)) {
+          location.href = "<?=$_SERVER['PHP_SELF']?>?dir=<?=$path?>&action=mkdir&name="+newdir;
+        }
+
+        return false;
+      }
+    </script>
+
+  </head>
+  <body>
+    <?php
+      route();
+    ?>
+
+  </body>
+  </html>
+  <?php
+}
+?>
