@@ -18,6 +18,7 @@ session_start();
 /* Security Configuration */
 $salt = $_SERVER['SERVER_NAME'];   // Any string
 $hash_iteration_count = 54321;     // Higher is better
+$jail_path = "crate";              // Webhard root jail directory
 
 /* Style Configuration */
 function CustomCSS() {
@@ -53,7 +54,9 @@ function path_join($path_arr) {
     $cur = array_shift($joined_path_arr);
     if($cur == NULL) break;
 
-    if($cur == "..") {
+    if($cur == ".") {
+      // Discard it
+    } else if($cur == "..") {
       array_pop($canon_path);
     } else {
       array_push($canon_path, $cur);
@@ -63,14 +66,24 @@ function path_join($path_arr) {
   return "/".implode("/", $canon_path);
 }
 
+function get_root_path() {
+  global $jail_path;
+  return path_join([dirname(__FILE__), $jail_path]);
+}
+
 function is_authorized() {
   return isset($_SESSION['token']) && $_SESSION['token'] == session_id();
 }
 
-$basepath = dirname(__FILE__);
+$basepath = get_root_path();
 $path = isset($_GET['dir'])? urldecode($_GET['dir']) : "/";
 
 $server_path = path_join([$basepath, $path]);
+
+// Initialize chroot jail
+if(!is_dir($basepath)) {
+  mkdir($basepath);
+}
 
 // Security check step 1
 // Update password
@@ -191,7 +204,7 @@ function login_form() {
  * @param $path webhard path
  */
 function list_directory($path) {
-  $basepath = dirname(__FILE__);
+  $basepath = get_root_path();
   $server_path = path_join([$basepath, $path]);
 
   function entries($path) {
@@ -315,7 +328,7 @@ function list_directory($path) {
  */
 function upload_file($path, $file) {
   if ($file["error"] == 0) {
-    $basepath = dirname(__FILE__);
+    $basepath = get_root_path();
     $targetpath = path_join([$basepath, $path ,$file["name"]]);
     move_uploaded_file($file["tmp_name"], $targetpath);
     go($path);
