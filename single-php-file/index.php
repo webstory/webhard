@@ -10,7 +10,7 @@ session_start();
  *
  * Most important thing: Discard after use.
  * 
- * @version 0.4.0
+ * @version 0.5.0
  * @author Hoya Kim(wbstory@storymate.net)
  * @license MIT
  */

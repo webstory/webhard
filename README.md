@@ -6,7 +6,6 @@ Simple webhard in a single file.
 
 ## Known issues
  * Upload other PHP file and execute it.
- * You will lost control if you remove index.php itself.
 
 Use this for small, personal purpose only.
 
