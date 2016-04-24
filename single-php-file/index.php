@@ -2,15 +2,15 @@
 session_start();
 /**
  * Simple webhard in a single file.
- * 
+ *
  * https://github.com/webstory/webhard
  *
  * WARNING! This program provides lacks of security.
  * Use this for small, personal purpose only.
  *
  * Most important thing: Discard after use.
- * 
- * @version 0.5.0
+ *
+ * @version 0.7.0
  * @author Hoya Kim(wbstory@storymate.net)
  * @license MIT
  */
@@ -29,6 +29,26 @@ function CustomCSS() {
     }
 
     .file {
+    }
+
+    .upload-progress {
+      position:fixed;
+      display:block;
+      top:0;
+      left:0;
+      width:100%;
+      height:5px;
+      background-color:white;
+    }
+
+    .upload-progress .progress {
+      position:absolute;
+      display:block;
+      top:0;
+      left:0;
+      width:0%;
+      height:100%;
+      background-color:green;
     }
   </style>
   <?php
@@ -250,9 +270,9 @@ function list_directory($path) {
       ?>
       <div class="container-fluid">
         <div class="pull-left">
-          <form class="form-inline" action="<?=$_SERVER['PHP_SELF']?>?dir=<?=$path?>&action=upload" method="post" enctype="multipart/form-data">
+          <form id="form1" class="form-inline" enctype="multipart/form-data" method="post" action="#">
             <span class="form-control btn btn-default btn-file"><input type="file" name="file" id="file"/></span>
-            <input class="btn btn-info" type="submit" name="submit" value="Upload" />
+            <input class="btn btn-info" type="button" name="submit" value="Upload" onClick="uploadFile()" />
           </form>
         </div>
         <div class="pull-right">
@@ -275,9 +295,10 @@ function list_directory($path) {
       <?php
       foreach(entries($server_path) as $entry) {
         $link_title = $entry['name'];
+        global $jail_path;
 
         if($entry['type']=='dir') {
-          $href = $_SERVER['PHP_SELF']."?dir=".path_join([$path,$entry['name']]);
+          $href = $_SERVER['PHP_SELF']."?dir=".urlencode(path_join([$path,$entry['name']]));
           ?>
           <tr class="directory">
             <td>
@@ -298,7 +319,7 @@ function list_directory($path) {
           </tr>
           <?php
         } else if($entry['type']=='file') {
-          $href = path_join([dirname($_SERVER['PHP_SELF']),$path,$entry['name']]);
+          $href = path_join([dirname($_SERVER['PHP_SELF']),$jail_path,$path,rawurlencode($entry['name'])]);
           ?>
           <tr class="file">
             <td>
@@ -349,6 +370,7 @@ function render($path, $view) {
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, user-scalable=no" />
+    <title>Webhard</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/bootstrap/3.3.6/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/flat-ui/2.2.2/css/flat-ui.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/fontawesome/4.5.0/css/font-awesome.min.css">
@@ -378,7 +400,7 @@ function render($path, $view) {
 
       function rmdir(name) {
         var result = confirm(name+" will be removed. Are you Sure?");
-        
+
         if(result) {
           go("rmdir", name);
         }
@@ -391,9 +413,49 @@ function render($path, $view) {
           go("mkdir", newDir);
         }
       }
+
+      function uploadFile() {
+        var xhr = new XMLHttpRequest();
+        var fd = new FormData(document.getElementById('form1'));
+
+        /* event handlers */
+        function uploadProgress(evt) {
+          if (evt.lengthComputable) {
+            var percentComplete = Math.round(evt.loaded * 100 / evt.total);
+            $(".upload-progress .progress").css("width",percentComplete.toString() + '%');
+          }
+          else {
+            $(".upload-progress .progress").css("background-color","red");
+          }
+        }
+
+        function uploadComplete(evt) {
+          /* This event is raised when the server send back a response */
+          go("list");
+        }
+
+        function uploadFailed(evt) {
+          alert("There was an error attempting to upload the file.");
+          go("list");
+        }
+
+        function uploadCanceled(evt) {
+          alert("The upload has been canceled by the user or the browser dropped the connection.");
+          go("list");
+        }
+
+        /* event listners */
+        xhr.upload.addEventListener("progress", uploadProgress, false);
+        xhr.addEventListener("load", uploadComplete, false);
+        xhr.addEventListener("error", uploadFailed, false);
+        xhr.addEventListener("abort", uploadCanceled, false);
+        xhr.open("POST", "<?=$_SERVER['PHP_SELF']?>?dir=<?=$path?>&action=upload");
+        xhr.send(fd);
+      }
     </script>
   </head>
   <body>
+    <div class="upload-progress"><div class="progress"></div></div>
     <?php
       switch ($view) {
         case 'login':
